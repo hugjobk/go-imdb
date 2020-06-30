@@ -161,3 +161,29 @@ func TestDatabase2(t *testing.T) {
 	t.Logf("Executed %d queries in %v", DatabaseSize*3, end2.Sub(start2))
 }
 ```
+
+Run test example:
+
+	$ go test -v imdb
+
+Output:
+
+```
+=== RUN   TestDatabase
+    TestDatabase: database_test.go:62: uniqueIndex{Id} violated
+    TestDatabase: database_test.go:79: (Id = 3)
+    TestDatabase: database_test.go:80: [{Id:3 Email:email3 Name:name3 Age:21}]
+    TestDatabase: database_test.go:82: (Email = "email2")
+    TestDatabase: database_test.go:83: [{Id:2 Email:email2 Name:name2 Age:20}]
+    TestDatabase: database_test.go:85: (Age = 21)
+    TestDatabase: database_test.go:86: [{Id:3 Email:email3 Name:name3 Age:21}, {Id:4 Email:email4 Name:name4 Age:21}]
+    TestDatabase: database_test.go:88: (Age = 21 & Name = "name4")
+    TestDatabase: database_test.go:89: [{Id:4 Email:email4 Name:name4 Age:21}]
+--- PASS: TestDatabase (0.00s)
+=== RUN   TestDatabase2
+    TestDatabase2: database_test.go:123: Added 500000 records in 4.9922856s
+    TestDatabase2: database_test.go:154: Executed 1500000 queries in 8.5158836s
+--- PASS: TestDatabase2 (13.51s)
+PASS
+ok      imdb    13.931s
+```
