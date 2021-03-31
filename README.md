@@ -45,7 +45,7 @@ func TestDatabase(t *testing.T) {
 	db.Index("Age", "Name")  // Create a non-unique index on fields `Age` and `Name`.
 
 	// Node: unique index is normally faster non-unique index.
-	// If a query mathes both unique and non-unique index, it will choose unique index to query.
+	// If a query matches both unique and non-unique index, it will choose unique index to query.
 
 	// Add first recrod.
 	if err := db.Add(record{1, "email1", "name1", 20}); err != nil {
