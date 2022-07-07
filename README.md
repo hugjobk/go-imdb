@@ -68,7 +68,7 @@ func TestDatabase(t *testing.T) {
 
 	// Note: you can query by any field even if it is not indexed.
 	// However it can be slow because it has to scan the database to find matched records.
-	// You can use PrepareFilter to reuse a query multiple times for different query parameters (see TestDatabase2).
+	// You can use PrepareFilter to reuse a query multiple times for different query parameters.
 
 	// Build a query where `Id` = 3.
 	q1 := db.Query().Filter("Id", 3).Build()
