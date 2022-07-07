@@ -7,7 +7,7 @@ import (
 )
 
 type query struct {
-	db         *database
+	db         *Database
 	filters    map[string]value
 	bestIndex  index
 	indexed    map[string]value
@@ -68,7 +68,7 @@ func (q *query) Run() []interface{} {
 func (q *query) String() string {
 	arr := make([]string, 0, len(q.filters))
 	for key, val := range q.filters {
-		arr = append(arr, fmt.Sprintf("%s = %#v", key, val.value()))
+		arr = append(arr, fmt.Sprintf("%s = %v", key, val.value()))
 	}
 	return fmt.Sprintf("(%s)", strings.Join(arr, " & "))
 }

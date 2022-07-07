@@ -57,18 +57,12 @@ func (idx *uniqueIndex) build(q query) (map[string]value, map[string]value) {
 }
 
 func (idx *uniqueIndex) query(q query) []interface{} {
-	if len(q.nonIndexed) == 0 {
-		key := buildKey(q.indexed)
-		if rec, ok := idx.recs[key]; ok {
-			return []interface{}{rec}
-		}
+	key := buildKey(q.indexed)
+	rec, ok := idx.recs[key]
+	if !ok || (len(q.nonIndexed) > 0 && match(rec, q.nonIndexed)) {
 		return nil
 	}
-	key := buildKey(q.indexed)
-	if rec, ok := idx.recs[key]; ok && match(rec, q.nonIndexed) {
-		return []interface{}{rec}
-	}
-	return nil
+	return []interface{}{rec}
 }
 
 func (idx *uniqueIndex) buildKey(rec interface{}) (string, error) {

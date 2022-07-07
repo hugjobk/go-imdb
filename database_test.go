@@ -2,15 +2,12 @@ package imdb_test
 
 import (
 	"fmt"
-	"imdb"
-	"runtime"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
-	"time"
-)
 
-const DatabaseSize = 500000
+	"github.com/hugjobk/imdb"
+)
 
 // Define a record struct.
 type record struct {
@@ -37,7 +34,7 @@ func TestDatabase(t *testing.T) {
 	db.Index("Age")          // Create a non-unique index on field `Age`.
 	db.Index("Age", "Name")  // Create a non-unique index on fields `Age` and `Name`.
 
-	// Node: unique index is normally faster non-unique index.
+	// Note: unique index is normally faster than non-unique index.
 	// If a query mathes both unique and non-unique index, it will choose unique index to query.
 
 	// Add first recrod.
@@ -62,7 +59,7 @@ func TestDatabase(t *testing.T) {
 		t.Log(err)
 	}
 
-	// Node: you can query by any field even if it is not indexed.
+	// Note: you can query by any field even if it is not indexed.
 	// However it can be slow because it has to scan the database to find matched records.
 	// You can use PrepareFilter to reuse a query multiple times for different query parameters (see TestDatabase2).
 
@@ -72,84 +69,78 @@ func TestDatabase(t *testing.T) {
 	q2 := db.Query().Filter("Email", "email2").Build()
 	// Build a query where `Age` = 21.
 	q3 := db.Query().Filter("Age", 21).Build()
-	// Build a query where `Age` = 21 AND `Name` = "name4".
-	q4 := db.Query().Filter("Age", 21).Filter("Name", "name4").Build()
+	// Build a query where `Name` = "name4" AND `Age` = 21.
+	q4 := db.Query().Filter("Name", "name4").Filter("Age", 21).Build()
 
 	// Print the queries and their results.
-	t.Log(q1)
-	t.Log(printResults(q1.Run()))
-
-	t.Log(q2)
-	t.Log(printResults(q2.Run()))
-
-	t.Log(q3)
-	t.Log(printResults(q3.Run()))
-
-	t.Log(q4)
-	t.Log(printResults(q4.Run()))
+	t.Logf("%s -> %s", q1, printResults(q1.Run()))
+	t.Logf("%s -> %s", q2, printResults(q2.Run()))
+	t.Logf("%s -> %s", q3, printResults(q3.Run()))
+	t.Logf("%s -> %s", q4, printResults(q4.Run()))
 }
 
-// Benmark database performance with multiple concurrent inserts and queries.
-func TestDatabase2(t *testing.T) {
+var db *imdb.Database
+
+var DatabaseSize uint32
+
+func init() {
 	// Create a database and indexes to speed up query speed.
-	db := imdb.NewDatabase()
+	db = imdb.NewDatabase()
 	db.UniqueIndex("Id")
 	db.UniqueIndex("Email")
-	db.Index("Age", "Name")
+	db.Index("Name", "Age")
+}
 
-	numCpu := runtime.NumCPU()
-	var wg1 sync.WaitGroup
-	var wg2 sync.WaitGroup
-	wg1.Add(numCpu)
-	wg2.Add(numCpu)
+func BenchmarkAdd(b *testing.B) {
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			i := atomic.AddUint32(&DatabaseSize, 1)
+			id := int(i)
+			email := fmt.Sprintf("email%d", i)
+			name := fmt.Sprintf("name%d", i%10000)
+			age := int(i % 100)
+			db.Add(record{id, email, name, age})
+		}
+	})
+}
 
-	start1 := time.Now()
-	// Start multiple goroutines to insert into the database.
-	for i := 0; i < numCpu; i++ {
-		j := i
-		go func() {
-			for ; j < DatabaseSize; j += numCpu {
-				id := j
-				email := fmt.Sprintf("email%d", j)
-				name := fmt.Sprintf("name%d", j%1000)
-				age := j % 100
-				db.Add(record{id, email, name, age})
-			}
-			wg1.Done()
-		}()
-	}
-	wg1.Wait()
-	end1 := time.Now()
-	t.Logf("Added %d records in %v\n", DatabaseSize, end1.Sub(start1))
+func BenchmarkQueryById(b *testing.B) {
+	var c uint32
+	b.RunParallel(func(p *testing.PB) {
+		var id int
+		q := db.Query().PrepareFilter("Id", &id).Build()
+		for p.Next() {
+			i := atomic.AddUint32(&c, 1)
+			id = int(i % uint32(DatabaseSize))
+			q.Run()
+		}
+	})
+}
 
-	start2 := time.Now()
-	// Start multiple goroutines to query the database.
-	for i := 0; i < numCpu; i++ {
-		j := i
-		go func() {
-			var id int
-			var email string
-			var name string
-			var age int
-			// Build queries that can be reused multiple times.
-			q1 := db.Query().PrepareFilter("Id", &id).Build()
-			q2 := db.Query().PrepareFilter("Email", &email).Build()
-			q3 := db.Query().PrepareFilter("Age", &age).PrepareFilter("Name", &name).Build()
-			for ; j < DatabaseSize; j += numCpu {
-				// Update query parameters after the query is built.
-				id = j
-				email = fmt.Sprintf("email%d", j)
-				name = fmt.Sprintf("name%d", j%1000)
-				age = j % 100
-				// Execute the queries.
-				q1.Run()
-				q2.Run()
-				q3.Run()
-			}
-			wg2.Done()
-		}()
-	}
-	wg2.Wait()
-	end2 := time.Now()
-	t.Logf("Executed %d queries in %v", DatabaseSize*3, end2.Sub(start2))
+func BenchmarkQueryByEmail(b *testing.B) {
+	var c uint32
+	b.RunParallel(func(p *testing.PB) {
+		var email string
+		q := db.Query().PrepareFilter("Email", &email).Build()
+		for p.Next() {
+			i := atomic.AddUint32(&c, 1)
+			email = fmt.Sprintf("email%d", i%DatabaseSize)
+			q.Run()
+		}
+	})
+}
+
+func BenchmarkQueryByNameAndAge(b *testing.B) {
+	var c uint32
+	b.RunParallel(func(p *testing.PB) {
+		var name string
+		var age int
+		q := db.Query().PrepareFilter("Name", &name).PrepareFilter("Age", &age).Build()
+		for p.Next() {
+			i := atomic.AddUint32(&c, 1)
+			name = fmt.Sprintf("name%d", i%10000)
+			age = int(i % 100)
+			q.Run()
+		}
+	})
 }

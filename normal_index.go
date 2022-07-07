@@ -61,17 +61,13 @@ func (idx *normalIndex) build(q query) (map[string]value, map[string]value) {
 }
 
 func (idx *normalIndex) query(q query) []interface{} {
-	if len(q.nonIndexed) == 0 {
-		key := buildKey(q.indexed)
-		if recs, ok := idx.recs[key]; ok {
-			return recs.All()
-		}
-		return nil
-	}
 	key := buildKey(q.indexed)
 	recs, ok := idx.recs[key]
 	if !ok {
 		return nil
+	}
+	if len(q.nonIndexed) == 0 {
+		return recs.All()
 	}
 	var results []interface{}
 	for rec := range recs.elements {

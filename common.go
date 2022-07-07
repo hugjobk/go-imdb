@@ -29,7 +29,7 @@ func match(rec interface{}, m map[string]value) bool {
 func buildKey(m map[string]value) string {
 	arr := make([]string, 0, len(m))
 	for key, val := range m {
-		arr = append(arr, fmt.Sprintf("%s:%s", key, val.value()))
+		arr = append(arr, fmt.Sprintf("%v:%v", key, val.value()))
 	}
 	sort.Strings(arr)
 	return strings.Join(arr, "|")
